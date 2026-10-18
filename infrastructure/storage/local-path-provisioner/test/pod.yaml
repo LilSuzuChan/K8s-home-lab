@@ -1,0 +1,41 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: storage-test
+  namespace: storage-test
+spec:
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 65534
+    runAsGroup: 65534
+    seccompProfile:
+      type: RuntimeDefault
+  containers:
+    - name: writer
+      image: docker.io/library/busybox:1.37.0
+      command:
+        - sh
+        - -c
+        - |
+          [ -f /data/created-at ] || date -u +%Y-%m-%dT%H:%M:%SZ > /data/created-at
+          echo "boot $(date -u +%Y-%m-%dT%H:%M:%SZ) $(hostname)" >> /data/boot.log
+          cat /data/created-at
+          exec sleep 3600
+      securityContext:
+        allowPrivilegeEscalation: false
+        readOnlyRootFilesystem: true
+        capabilities:
+          drop: ["ALL"]
+      resources:
+        requests:
+          cpu: 10m
+          memory: 16Mi
+        limits:
+          memory: 32Mi
+      volumeMounts:
+        - name: data
+          mountPath: /data
+  volumes:
+    - name: data
+      persistentVolumeClaim:
+        claimName: storage-test
