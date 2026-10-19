@@ -1,0 +1,14 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: object-storage
+
+generatorOptions:
+  disableNameSuffixHash: true
+  labels:
+    app.kubernetes.io/part-of: object-storage-test
+
+configMapGenerator:
+  - name: s3-smoke-test
+    files:
+      - s3-smoke.sh
