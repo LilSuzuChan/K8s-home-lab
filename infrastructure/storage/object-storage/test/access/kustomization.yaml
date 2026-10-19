@@ -1,0 +1,21 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+labels:
+  - pairs:
+      app.kubernetes.io/part-of: object-storage-test
+
+resources:
+  - namespaces.yaml
+  - job-allowed.yaml
+  - job-denied.yaml
+
+configMapGenerator:
+  - name: s3-access-test
+    namespace: object-storage-test
+    files:
+      - s3-access.sh
+  - name: s3-access-test
+    namespace: object-storage-test-denied
+    files:
+      - s3-access.sh
