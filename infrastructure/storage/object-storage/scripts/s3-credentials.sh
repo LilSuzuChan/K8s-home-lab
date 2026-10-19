@@ -5,7 +5,7 @@ umask 077
 
 NAMESPACE="object-storage"
 SECRET="seaweedfs-s3-credentials"
-DEPLOYMENT="seaweedfs"
+STATEFULSET="seaweedfs"
 IDENTITY="admin"
 ACTIONS='"Admin","Read","List","Tagging","Write"'
 
@@ -82,9 +82,9 @@ cmd_create() {
   secret_exists && die "secret $NAMESPACE/$SECRET already exists; use 'rotate --yes' to replace it"
   render_secret | kubectl create -f - >/dev/null
   echo "created secret $NAMESPACE/$SECRET (values are not shown)"
-  if kube get deployment "$DEPLOYMENT" >/dev/null 2>&1; then
+  if kube get statefulset "$STATEFULSET" >/dev/null 2>&1; then
     echo "SeaweedFS is already deployed; restart it to load the credentials:"
-    echo "  kubectl -n $NAMESPACE rollout restart deployment/$DEPLOYMENT"
+    echo "  kubectl -n $NAMESPACE rollout restart statefulset/$STATEFULSET"
   fi
 }
 
@@ -94,9 +94,9 @@ cmd_rotate() {
   secret_exists || die "secret $NAMESPACE/$SECRET not found; use 'create'"
   render_secret | kubectl replace -f - >/dev/null
   echo "replaced secret $NAMESPACE/$SECRET (values are not shown)"
-  if kube get deployment "$DEPLOYMENT" >/dev/null 2>&1; then
-    kube rollout restart "deployment/$DEPLOYMENT"
-    kube rollout status "deployment/$DEPLOYMENT" --timeout=300s
+  if kube get statefulset "$STATEFULSET" >/dev/null 2>&1; then
+    kube rollout restart "statefulset/$STATEFULSET"
+    kube rollout status "statefulset/$STATEFULSET" --timeout=300s
   fi
   echo "update every client that copied the old keys"
 }

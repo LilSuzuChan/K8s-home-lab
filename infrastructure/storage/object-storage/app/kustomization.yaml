@@ -11,7 +11,8 @@ resources:
   - serviceaccount.yaml
   - networkpolicy.yaml
   - service.yaml
-  - deployment.yaml
+  - service-headless.yaml
+  - statefulset.yaml
 
 configMapGenerator:
   - name: seaweedfs-scripts

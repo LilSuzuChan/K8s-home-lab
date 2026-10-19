@@ -1,15 +1,20 @@
 apiVersion: apps/v1
-kind: Deployment
+kind: StatefulSet
 metadata:
   name: seaweedfs
   labels:
     app.kubernetes.io/name: seaweedfs
     app.kubernetes.io/version: "4.48"
 spec:
+  serviceName: seaweedfs-headless
   replicas: 1
   revisionHistoryLimit: 3
-  strategy:
-    type: Recreate
+  podManagementPolicy: OrderedReady
+  updateStrategy:
+    type: RollingUpdate
+  persistentVolumeClaimRetentionPolicy:
+    whenDeleted: Retain
+    whenScaled: Retain
   selector:
     matchLabels:
       app.kubernetes.io/name: seaweedfs
