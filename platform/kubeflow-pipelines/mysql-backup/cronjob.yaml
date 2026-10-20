@@ -105,6 +105,8 @@ spec:
                   value: http://seaweedfs.object-storage.svc.cluster.local:8333
                 - name: RCLONE_CONFIG_SEAWEEDFS_REGION
                   value: us-east-1
+                - name: RCLONE_CONFIG_SEAWEEDFS_NO_CHECK_BUCKET
+                  value: "true"
                 - name: RCLONE_CONFIG_SEAWEEDFS_ACCESS_KEY_ID
                   valueFrom:
                     secretKeyRef:

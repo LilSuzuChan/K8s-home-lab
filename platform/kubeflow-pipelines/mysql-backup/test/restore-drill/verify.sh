@@ -35,7 +35,7 @@ log "restore finished"
 
 for db in mlpipeline metadb; do
   q="SELECT table_name FROM information_schema.tables WHERE table_schema='$db' ORDER BY table_name"
-  diff <(production "$q") <(restored "$q") >/dev/null || fail "table list of $db differs"
+  [ "$(production "$q")" = "$(restored "$q")" ] || fail "table list of $db differs"
   log "$db tables match production: $(restored "$q" | wc -l)"
 done
 
