@@ -61,6 +61,11 @@ patches:
   - path: patches/ml-pipeline-ui.yaml
   - path: patches/mysql.yaml
   - path: patches/resources.yaml
+  - path: patches/pipeline-runner-role.yaml
+    target:
+      group: rbac.authorization.k8s.io
+      kind: Role
+      name: pipeline-runner
   - target:
       kind: Deployment
       name: workflow-controller
