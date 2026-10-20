@@ -1,0 +1,41 @@
+- op: test
+  path: /metadata/name
+  value: pipeline-runner
+- op: replace
+  path: /rules
+  value:
+    - apiGroups:
+        - ""
+      resources:
+        - secrets
+      resourceNames:
+        - mlpipeline-minio-artifact
+      verbs:
+        - get
+    - apiGroups:
+        - ""
+      resources:
+        - configmaps
+      resourceNames:
+        - kfp-launcher
+      verbs:
+        - get
+    - apiGroups:
+        - ""
+      resources:
+        - pods
+      verbs:
+        - get
+    - apiGroups:
+        - argoproj.io
+      resources:
+        - workflows
+      verbs:
+        - get
+    - apiGroups:
+        - argoproj.io
+      resources:
+        - workflowtaskresults
+      verbs:
+        - create
+        - patch

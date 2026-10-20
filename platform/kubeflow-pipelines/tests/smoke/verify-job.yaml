@@ -1,0 +1,94 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: kfp-smoke-verify
+  namespace: object-storage-backup
+  labels:
+    app.kubernetes.io/part-of: kubeflow-pipelines-test
+spec:
+  backoffLimit: 0
+  activeDeadlineSeconds: 120
+  ttlSecondsAfterFinished: 3600
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/part-of: kubeflow-pipelines-test
+    spec:
+      restartPolicy: Never
+      automountServiceAccountToken: false
+      enableServiceLinks: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1009
+        runAsGroup: 1009
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: rclone
+          image: docker.io/rclone/rclone:1.75.2@sha256:2687085f718d3c628f7fdfb77c52a1d344332aed543110bb88088f2c70d43eb5
+          command:
+            - /bin/sh
+            - -ec
+            - |
+              root="seaweedfs:mlpipeline/v2/artifacts/homelab-smoke/$RUN_ID"
+              logs="seaweedfs:mlpipeline/private-artifacts/kubeflow/$WORKFLOW/"
+              rclone lsl "$root"
+              data=$(rclone lsf -R --files-only "$root/produce" | grep '/data$')
+              checksum=$(rclone lsf -R --files-only "$root/produce" | grep '/checksum$')
+              digest=$(rclone lsf -R --files-only "$root/consume" | grep '/digest$')
+              actual=$(rclone cat "$root/produce/$data" | sha256sum | cut -d' ' -f1)
+              recorded=$(rclone cat "$root/produce/$checksum")
+              consumed=$(rclone cat "$root/consume/$digest")
+              echo "sha256 data=$actual checksum=$recorded digest=$consumed"
+              [ "$actual" = "$recorded" ] && [ "$actual" = "$consumed" ] || { echo "FAIL: sha256 mismatch"; exit 1; }
+              count=$(rclone lsf -R --files-only "$logs" | grep -c 'main.log$')
+              [ "$count" -ge 1 ] || { echo "FAIL: no workflow logs under $logs"; exit 1; }
+              echo "workflow logs in SeaweedFS: $count"
+              echo "artifacts and logs are stored in seaweedfs.object-storage: OK"
+          env:
+            - name: HOME
+              value: /tmp
+            - name: XDG_CONFIG_HOME
+              value: /tmp
+            - name: RUN_ID
+              value: RUN_ID_PLACEHOLDER
+            - name: WORKFLOW
+              value: WORKFLOW_PLACEHOLDER
+            - name: RCLONE_CONFIG_SEAWEEDFS_TYPE
+              value: s3
+            - name: RCLONE_CONFIG_SEAWEEDFS_PROVIDER
+              value: SeaweedFS
+            - name: RCLONE_CONFIG_SEAWEEDFS_ENDPOINT
+              value: http://seaweedfs.object-storage.svc.cluster.local:8333
+            - name: RCLONE_CONFIG_SEAWEEDFS_REGION
+              value: us-east-1
+            - name: RCLONE_CONFIG_SEAWEEDFS_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: seaweedfs-backup-source
+                  key: AWS_ACCESS_KEY_ID
+            - name: RCLONE_CONFIG_SEAWEEDFS_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: seaweedfs-backup-source
+                  key: AWS_SECRET_ACCESS_KEY
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir:
+            sizeLimit: 64Mi

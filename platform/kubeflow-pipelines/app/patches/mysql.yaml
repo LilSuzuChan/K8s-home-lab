@@ -25,3 +25,5 @@ metadata:
   namespace: kubeflow
   annotations:
     argocd.argoproj.io/sync-options: Delete=false
+spec:
+  storageClassName: local-path

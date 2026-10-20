@@ -24,31 +24,6 @@ spec:
     - from:
         - podSelector: {}
 ---
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
-metadata:
-  name: mysql
-spec:
-  podSelector:
-    matchLabels:
-      app: mysql
-  policyTypes:
-    - Ingress
-  ingress:
-    - from:
-        - podSelector:
-            matchLabels:
-              app: ml-pipeline
-        - podSelector:
-            matchLabels:
-              component: metadata-grpc-server
-        - podSelector:
-            matchLabels:
-              kubeflow-pipelines.homelab/mysql-client: "true"
-      ports:
-        - port: 3306
-          protocol: TCP
----
 apiVersion: cilium.io/v2
 kind: CiliumNetworkPolicy
 metadata:
@@ -71,6 +46,10 @@ spec:
               - matchPattern: "*"
     - toEntities:
         - kube-apiserver
+      toPorts:
+        - ports:
+            - port: "6443"
+              protocol: TCP
     - toEndpoints:
         - matchLabels:
             k8s:io.kubernetes.pod.namespace: object-storage
@@ -78,4 +57,25 @@ spec:
       toPorts:
         - ports:
             - port: "8333"
+              protocol: TCP
+---
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: mysql-ingress
+spec:
+  endpointSelector:
+    matchLabels:
+      app: mysql
+  ingress:
+    - fromEndpoints:
+        - matchLabels:
+            io.cilium.k8s.policy.serviceaccount: ml-pipeline
+        - matchLabels:
+            io.cilium.k8s.policy.serviceaccount: metadata-grpc-server
+        - matchLabels:
+            io.cilium.k8s.policy.serviceaccount: kfp-mysql-backup
+      toPorts:
+        - ports:
+            - port: "3306"
               protocol: TCP
