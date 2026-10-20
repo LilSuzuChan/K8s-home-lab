@@ -12,6 +12,8 @@ export interface BackupStackProps extends StackProps {
 
 export const NONCURRENT_VERSION_RETENTION_DAYS = 90;
 export const MANIFEST_RETENTION_DAYS = 400;
+export const KFP_DB_BACKUP_RETENTION_DAYS = 30;
+export const KFP_DB_BACKUP_NONCURRENT_DAYS = 7;
 export const BACKUP_PREFIXES = ['seaweedfs', 'manifests', 'status'] as const;
 
 export class BackupStack extends Stack {
@@ -52,6 +54,12 @@ export class BackupStack extends Stack {
           id: 'expire-manifests',
           prefix: 'manifests/',
           expiration: Duration.days(MANIFEST_RETENTION_DAYS),
+        },
+        {
+          id: 'expire-kfp-db-backups',
+          prefix: 'seaweedfs/kfp-db-backup/',
+          expiration: Duration.days(KFP_DB_BACKUP_RETENTION_DAYS),
+          noncurrentVersionExpiration: Duration.days(KFP_DB_BACKUP_NONCURRENT_DAYS),
         },
       ],
     });

@@ -1,0 +1,15 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: kubeflow
+
+generatorOptions:
+  disableNameSuffixHash: true
+  labels:
+    app.kubernetes.io/part-of: kubeflow-pipelines-test
+
+configMapGenerator:
+  - name: kfp-mysql-restore-drill
+    files:
+      - fetch.sh
+      - verify.sh
