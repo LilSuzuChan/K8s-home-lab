@@ -7,9 +7,9 @@ metadata:
 spec:
   schedule: "30 2 * * *"
   timeZone: Asia/Tokyo
-  suspend: true
+  suspend: false
   concurrencyPolicy: Forbid
-  startingDeadlineSeconds: 3600
+  startingDeadlineSeconds: 1500
   successfulJobsHistoryLimit: 3
   failedJobsHistoryLimit: 3
   jobTemplate:
