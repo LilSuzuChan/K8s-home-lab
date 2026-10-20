@@ -70,6 +70,7 @@ read_key() {
   kube get secret "$SECRET" -o "jsonpath={.data.$1}" | openssl base64 -d -A
 }
 
+<<<<<<< HEAD
 load_identities() {
   local id
   for id in "${IDENTITIES[@]}"; do
@@ -103,6 +104,32 @@ render_secret() {
     identities+="${identities:+,}$(printf '{"name":"%s","credentials":[{"accessKey":"%s","secretKey":"%s"}],"actions":[%s]}' \
       "$id" "${AK[$id]}" "${SK[$id]}" "${ACTIONS[$id]}")"
   done
+=======
+new_access_key() {
+  openssl rand -hex 10 | tr 'a-f' 'A-F'
+}
+
+new_secret_key() {
+  openssl rand -base64 30
+}
+
+identity_json() {
+  printf '{"name":"%s","credentials":[{"accessKey":"%s","secretKey":"%s"}],"actions":[%s]}' "$1" "$2" "$3" "$4"
+}
+
+render_secret() {
+  local s3_json now
+  for value in "$ADMIN_AK" "$BACKUP_AK" "$RESTORE_AK"; do
+    [[ ${#value} -eq 20 ]] || die "invalid access key length"
+  done
+  for value in "$ADMIN_SK" "$BACKUP_SK" "$RESTORE_SK"; do
+    [[ ${#value} -eq 40 ]] || die "invalid secret key length"
+  done
+  s3_json=$(printf '{"identities":[%s,%s,%s]}' \
+    "$(identity_json admin "$ADMIN_AK" "$ADMIN_SK" "$ADMIN_ACTIONS")" \
+    "$(identity_json backup "$BACKUP_AK" "$BACKUP_SK" "$BACKUP_ACTIONS")" \
+    "$(identity_json restore "$RESTORE_AK" "$RESTORE_SK" "$RESTORE_ACTIONS")")
+>>>>>>> 9ac606329cd6495688b162a66d4cbb239208ac6b
   now=$(date -u +%Y-%m-%dT%H:%M:%SZ)
   cat <<YAML
 apiVersion: v1
@@ -116,6 +143,7 @@ metadata:
     app.kubernetes.io/part-of: object-storage
   annotations:
     object-storage.homelab/generated-at: "${now}"
+<<<<<<< HEAD
     object-storage.homelab/identity: "$(for id in "${IDENTITIES[@]}"; do [[ -n "${AK[$id]:-}" ]] && printf '%s,' "$id"; done | sed 's/,$//')"
 data:
   s3.json: $(b64 "{\"identities\":[${identities}]}")
@@ -129,11 +157,27 @@ YAML
 
 render_client_secret() {
   local name=$1 namespace=$2 identity=$3 part_of=$4 access_name=$5 secret_name=$6
+=======
+    object-storage.homelab/identity: "admin,backup,restore"
+data:
+  s3.json: $(b64 "$s3_json")
+  AWS_ACCESS_KEY_ID: $(b64 "$ADMIN_AK")
+  AWS_SECRET_ACCESS_KEY: $(b64 "$ADMIN_SK")
+  BACKUP_ACCESS_KEY_ID: $(b64 "$BACKUP_AK")
+  BACKUP_SECRET_ACCESS_KEY: $(b64 "$BACKUP_SK")
+  RESTORE_ACCESS_KEY_ID: $(b64 "$RESTORE_AK")
+  RESTORE_SECRET_ACCESS_KEY: $(b64 "$RESTORE_SK")
+YAML
+}
+
+render_client_secret() {
+>>>>>>> 9ac606329cd6495688b162a66d4cbb239208ac6b
   cat <<YAML
 apiVersion: v1
 kind: Secret
 type: Opaque
 metadata:
+<<<<<<< HEAD
   name: ${name}
   namespace: ${namespace}
   labels:
@@ -144,6 +188,19 @@ metadata:
 data:
   ${access_name}: $(b64 "${AK[$identity]}")
   ${secret_name}: $(b64 "${SK[$identity]}")
+=======
+  name: $1
+  namespace: ${BACKUP_NAMESPACE}
+  labels:
+    app.kubernetes.io/name: seaweedfs-backup
+    app.kubernetes.io/part-of: object-storage-backup
+  annotations:
+    object-storage.homelab/identity: "$2"
+    object-storage.homelab/source: "${NAMESPACE}/${SECRET}"
+data:
+  AWS_ACCESS_KEY_ID: $(b64 "$3")
+  AWS_SECRET_ACCESS_KEY: $(b64 "$4")
+>>>>>>> 9ac606329cd6495688b162a66d4cbb239208ac6b
 YAML
 }
 
@@ -155,6 +212,21 @@ upsert() {
   fi
 }
 
+<<<<<<< HEAD
+=======
+generate_backup_identities() {
+  BACKUP_AK=$(new_access_key)
+  BACKUP_SK=$(new_secret_key)
+  RESTORE_AK=$(new_access_key)
+  RESTORE_SK=$(new_secret_key)
+}
+
+generate_admin_identity() {
+  ADMIN_AK=$(new_access_key)
+  ADMIN_SK=$(new_secret_key)
+}
+
+>>>>>>> 9ac606329cd6495688b162a66d4cbb239208ac6b
 restart_seaweedfs() {
   if kube get statefulset "$STATEFULSET" >/dev/null 2>&1; then
     kube rollout restart "statefulset/$STATEFULSET"
@@ -162,6 +234,7 @@ restart_seaweedfs() {
   fi
 }
 
+<<<<<<< HEAD
 sync_client() {
   local identity=$1 name=$2 namespace=$3 part_of=$4 access_name=$5 secret_name=$6
   if ! kubectl get namespace "$namespace" >/dev/null 2>&1; then
@@ -187,12 +260,30 @@ replace_and_restart() {
   echo "replaced secret $NAMESPACE/$SECRET; regenerated: $* (values are not shown)"
   restart_seaweedfs
   sync_all
+=======
+sync_backup_secrets() {
+  if ! kubectl get namespace "$BACKUP_NAMESPACE" >/dev/null 2>&1; then
+    echo "namespace $BACKUP_NAMESPACE not found; run 'sync-backup' after applying object-storage-backup/"
+    return
+  fi
+  [[ -n "$(read_key BACKUP_ACCESS_KEY_ID)" ]] || die "secret $NAMESPACE/$SECRET has no backup identity; run 'backup-identities --yes'"
+  render_client_secret "$BACKUP_SECRET" backup "$(read_key BACKUP_ACCESS_KEY_ID)" "$(read_key BACKUP_SECRET_ACCESS_KEY)" \
+    | upsert "$BACKUP_NAMESPACE" "$BACKUP_SECRET"
+  render_client_secret "$RESTORE_SECRET" restore "$(read_key RESTORE_ACCESS_KEY_ID)" "$(read_key RESTORE_SECRET_ACCESS_KEY)" \
+    | upsert "$BACKUP_NAMESPACE" "$RESTORE_SECRET"
+  echo "synced secrets $BACKUP_NAMESPACE/$BACKUP_SECRET and $BACKUP_NAMESPACE/$RESTORE_SECRET (values are not shown)"
+>>>>>>> 9ac606329cd6495688b162a66d4cbb239208ac6b
 }
 
 cmd_create() {
   preflight
   secret_exists "$NAMESPACE" "$SECRET" && die "secret $NAMESPACE/$SECRET already exists; use 'rotate --yes' to replace it"
+<<<<<<< HEAD
   generate "${IDENTITIES[@]}"
+=======
+  generate_admin_identity
+  generate_backup_identities
+>>>>>>> 9ac606329cd6495688b162a66d4cbb239208ac6b
   render_secret | kubectl create -f - >/dev/null
   echo "created secret $NAMESPACE/$SECRET (values are not shown)"
   if kube get statefulset "$STATEFULSET" >/dev/null 2>&1; then
@@ -205,6 +296,7 @@ cmd_rotate() {
   [[ "${1:-}" == "--yes" ]] || die "rotate invalidates the current keys for every client; re-run with --yes"
   preflight
   secret_exists "$NAMESPACE" "$SECRET" || die "secret $NAMESPACE/$SECRET not found; use 'create'"
+<<<<<<< HEAD
   generate "${IDENTITIES[@]}"
   replace_and_restart "${IDENTITIES[@]}"
   echo "update every client that copied the old admin keys"
@@ -226,6 +318,34 @@ cmd_sync() {
   secret_exists "$NAMESPACE" "$SECRET" || die "secret $NAMESPACE/$SECRET not found"
   load_identities
   sync_all
+=======
+  generate_admin_identity
+  generate_backup_identities
+  render_secret | kubectl replace -f - >/dev/null
+  echo "replaced secret $NAMESPACE/$SECRET (values are not shown)"
+  restart_seaweedfs
+  sync_backup_secrets
+  echo "update every client that copied the old admin keys"
+}
+
+cmd_backup_identities() {
+  [[ "${1:-}" == "--yes" ]] || die "this replaces the backup and restore keys and restarts SeaweedFS; re-run with --yes"
+  preflight
+  secret_exists "$NAMESPACE" "$SECRET" || die "secret $NAMESPACE/$SECRET not found; use 'create'"
+  ADMIN_AK=$(read_key AWS_ACCESS_KEY_ID)
+  ADMIN_SK=$(read_key AWS_SECRET_ACCESS_KEY)
+  generate_backup_identities
+  render_secret | kubectl replace -f - >/dev/null
+  echo "replaced secret $NAMESPACE/$SECRET with new backup and restore keys; admin keys are unchanged (values are not shown)"
+  restart_seaweedfs
+  sync_backup_secrets
+}
+
+cmd_sync_backup() {
+  preflight
+  secret_exists "$NAMESPACE" "$SECRET" || die "secret $NAMESPACE/$SECRET not found"
+  sync_backup_secrets
+>>>>>>> 9ac606329cd6495688b162a66d4cbb239208ac6b
 }
 
 fingerprint() {
@@ -241,6 +361,7 @@ generated-at: {{index .metadata.annotations "object-storage.homelab/generated-at
 keys:        {{range $k, $v := .data}} {{$k}}{{end}}
 '
   echo "identities:   $(read_key 's3\.json' | grep -o '"name":"[^"]*"' | cut -d'"' -f4 | paste -sd' ')"
+<<<<<<< HEAD
   for id in "${IDENTITIES[@]}"; do
     if [[ -n "$(read_key "$(data_key "$id" ACCESS_KEY_ID)")" ]]; then
       printf '%-8s access key sha256: %s\n' "$id" "$(fingerprint "$NAMESPACE" "$SECRET" "$(data_key "$id" ACCESS_KEY_ID)")"
@@ -252,6 +373,18 @@ keys:        {{range $k, $v := .data}} {{$k}}{{end}}
       echo "$ns/$name access key sha256: $(fingerprint "$ns" "$name" "$key")"
     else
       echo "$ns/$name: not found"
+=======
+  echo "admin   access key sha256: $(fingerprint "$NAMESPACE" "$SECRET" AWS_ACCESS_KEY_ID)"
+  if [[ -n "$(read_key BACKUP_ACCESS_KEY_ID)" ]]; then
+    echo "backup  access key sha256: $(fingerprint "$NAMESPACE" "$SECRET" BACKUP_ACCESS_KEY_ID)"
+    echo "restore access key sha256: $(fingerprint "$NAMESPACE" "$SECRET" RESTORE_ACCESS_KEY_ID)"
+  fi
+  for name in "$BACKUP_SECRET" "$RESTORE_SECRET"; do
+    if secret_exists "$BACKUP_NAMESPACE" "$name"; then
+      echo "$BACKUP_NAMESPACE/$name access key sha256: $(fingerprint "$BACKUP_NAMESPACE" "$name" AWS_ACCESS_KEY_ID)"
+    else
+      echo "$BACKUP_NAMESPACE/$name: not found"
+>>>>>>> 9ac606329cd6495688b162a66d4cbb239208ac6b
     fi
   done
 }
@@ -259,9 +392,14 @@ keys:        {{range $k, $v := .data}} {{$k}}{{end}}
 case "${1:-}" in
   create) cmd_create ;;
   rotate) shift; cmd_rotate "$@" ;;
+<<<<<<< HEAD
   backup-identities) shift; cmd_regenerate "${1:-}" backup restore ;;
   kfp-identity) shift; cmd_regenerate "${1:-}" kfp ;;
   sync|sync-backup) cmd_sync ;;
+=======
+  backup-identities) shift; cmd_backup_identities "$@" ;;
+  sync-backup) cmd_sync_backup ;;
+>>>>>>> 9ac606329cd6495688b162a66d4cbb239208ac6b
   status) cmd_status ;;
   -h|--help|help) usage ;;
   *) usage >&2; exit 2 ;;
