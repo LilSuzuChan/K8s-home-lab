@@ -43,6 +43,16 @@ export class BackupMonitorStack extends Stack {
       displayName: 'Homelab backup alerts',
       enforceSSL: true,
     });
+    this.topic.addToResourcePolicy(new iam.PolicyStatement({
+      sid: 'AllowBackupAlarms',
+      principals: [new iam.ServicePrincipal('cloudwatch.amazonaws.com')],
+      actions: ['sns:Publish'],
+      resources: [this.topic.topicArn],
+      conditions: {
+        StringEquals: { 'aws:SourceAccount': this.account },
+        ArnLike: { 'aws:SourceArn': `arn:aws:cloudwatch:${this.region}:${this.account}:alarm:homelab-backup-*` },
+      },
+    }));
     new sns.Subscription(this, 'AlertEmail', {
       topic: this.topic,
       protocol: sns.SubscriptionProtocol.EMAIL,

@@ -139,6 +139,25 @@ describe('notifications', () => {
     expect(logicalIds).not.toContain('examplecom');
   });
 
+  test('the topic policy lets only the backup alarms of this account publish', () => {
+    const { template } = synth();
+    const statements = Object.values(template.findResources('AWS::SNS::TopicPolicy'))[0].Properties.PolicyDocument.Statement;
+    const allow = statements.filter((s: any) => s.Effect === 'Allow');
+    expect(allow).toHaveLength(1);
+    expect(allow[0]).toMatchObject({
+      Sid: 'AllowBackupAlarms',
+      Principal: { Service: 'cloudwatch.amazonaws.com' },
+      Action: 'sns:Publish',
+      Condition: {
+        StringEquals: { 'aws:SourceAccount': '123456789012' },
+        ArnLike: { 'aws:SourceArn': 'arn:aws:cloudwatch:ap-northeast-1:123456789012:alarm:homelab-backup-*' },
+      },
+    });
+    for (const alarm of alarms(template)) {
+      expect(alarm.AlarmName).toMatch(/^homelab-backup-/);
+    }
+  });
+
   test('rejects an invalid email', () => {
     expect(() => new BackupMonitorStack(new App(), 'Bad', { env: ENV, alertEmail: 'nope' })).toThrow(/alertEmail/);
   });
