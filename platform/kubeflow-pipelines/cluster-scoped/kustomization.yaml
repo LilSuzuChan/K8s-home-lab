@@ -1,0 +1,26 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - upstream/kfp-2.17.2-cluster-scoped-resources.yaml
+
+components:
+  - ../components/without-cache-webhook
+
+patches:
+  - target:
+      kind: Namespace
+      name: kubeflow
+    patch: |-
+      apiVersion: v1
+      kind: Namespace
+      metadata:
+        name: kubeflow
+        labels:
+          app.kubernetes.io/part-of: kubeflow-pipelines
+          object-storage.homelab/s3-client: "true"
+          pod-security.kubernetes.io/enforce: restricted
+          pod-security.kubernetes.io/audit: restricted
+          pod-security.kubernetes.io/warn: restricted
+        annotations:
+          argocd.argoproj.io/sync-options: Delete=false

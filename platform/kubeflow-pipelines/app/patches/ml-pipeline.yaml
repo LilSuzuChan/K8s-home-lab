@@ -1,0 +1,23 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ml-pipeline
+  namespace: kubeflow
+spec:
+  template:
+    spec:
+      containers:
+        - name: ml-pipeline-api-server
+          env:
+            - name: OBJECTSTORECONFIG_HOST
+              value: seaweedfs.object-storage.svc.cluster.local
+            - name: OBJECTSTORECONFIG_PORT
+              value: "8333"
+            - name: OBJECTSTORECONFIG_SECURE
+              value: "false"
+            - name: CACHEENABLED
+              value: "false"
+            - name: V2_DRIVER_IMAGE
+              value: ghcr.io/kubeflow/kfp-driver:2.17.2@sha256:4081fa56cb1914a6b357b6f77fc0f14d846ed142bc2697aa58380376d81308ab
+            - name: V2_LAUNCHER_IMAGE
+              value: ghcr.io/kubeflow/kfp-launcher:2.17.2@sha256:78f779cf6cc7b34092232eb37157cc8de6e1327e3029abe6b33e73d4d76c03f3
