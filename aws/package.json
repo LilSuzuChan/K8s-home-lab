@@ -5,7 +5,8 @@
   "scripts": {
     "build": "tsc",
     "test": "jest",
-    "cdk": "cdk"
+    "cdk": "cdk",
+    "test:lambda": "python3 -m unittest discover -s lambda/backup-monitor -p 'test_*.py'"
   },
   "devDependencies": {
     "@swc/core": "^1.15.0",
