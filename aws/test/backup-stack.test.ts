@@ -1,7 +1,7 @@
 import { App, Validations } from 'aws-cdk-lib';
 import { Match, Template } from 'aws-cdk-lib/assertions';
 import { AwsSolutionsChecks } from 'cdk-nag';
-import { BackupStack, NONCURRENT_VERSION_RETENTION_DAYS } from '../lib/backup-stack';
+import { BackupStack, KFP_DB_BACKUP_NONCURRENT_DAYS, KFP_DB_BACKUP_RETENTION_DAYS, NONCURRENT_VERSION_RETENTION_DAYS } from '../lib/backup-stack';
 
 const EMAIL = 'budget@example.com';
 
@@ -60,18 +60,25 @@ describe('backup bucket', () => {
     expect(Object.keys(template.findResources('AWS::Lambda::Function'))).toHaveLength(0);
   });
 
-  test('keeps noncurrent versions for the agreed period and never expires current backup objects', () => {
+  test('keeps noncurrent versions for the agreed period and only expires manifests and KFP database dumps', () => {
     const bucket = Object.values(template.findResources('AWS::S3::Bucket'))[0];
     const rules = bucket.Properties.LifecycleConfiguration.Rules as Array<Record<string, unknown>>;
     expect(rules).toEqual(expect.arrayContaining([
       expect.objectContaining({ Id: 'expire-noncurrent-versions', NoncurrentVersionExpiration: { NoncurrentDays: NONCURRENT_VERSION_RETENTION_DAYS }, AbortIncompleteMultipartUpload: { DaysAfterInitiation: 7 } }),
       expect.objectContaining({ Id: 'remove-expired-delete-markers', ExpiredObjectDeleteMarker: true }),
       expect.objectContaining({ Id: 'expire-manifests', Prefix: 'manifests/', ExpirationInDays: 400 }),
+      expect.objectContaining({
+        Id: 'expire-kfp-db-backups',
+        Prefix: 'seaweedfs/kfp-db-backup/',
+        ExpirationInDays: KFP_DB_BACKUP_RETENTION_DAYS,
+        NoncurrentVersionExpiration: { NoncurrentDays: KFP_DB_BACKUP_NONCURRENT_DAYS },
+      }),
     ]));
     expect(NONCURRENT_VERSION_RETENTION_DAYS).toBe(90);
+    expect(KFP_DB_BACKUP_RETENTION_DAYS).toBe(30);
     for (const rule of rules) {
       if (rule.ExpirationInDays !== undefined) {
-        expect(rule.Prefix).toBe('manifests/');
+        expect(['manifests/', 'seaweedfs/kfp-db-backup/']).toContain(rule.Prefix);
       }
     }
   });

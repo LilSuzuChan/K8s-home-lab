@@ -12,14 +12,17 @@ RESTORE_SECRET="seaweedfs-restore"
 KFP_NAMESPACE="kubeflow"
 KFP_SECRET="mlpipeline-minio-artifact"
 KFP_BUCKET="mlpipeline"
+KFP_DB_BACKUP_SECRET="kfp-db-backup-s3"
+KFP_DB_BACKUP_BUCKET="kfp-db-backup"
 
-IDENTITIES=(admin backup restore kfp)
-declare -A PREFIX=([admin]="" [backup]="BACKUP_" [restore]="RESTORE_" [kfp]="KFP_")
+IDENTITIES=(admin backup restore kfp kfp-db-backup)
+declare -A PREFIX=([admin]="" [backup]="BACKUP_" [restore]="RESTORE_" [kfp]="KFP_" [kfp-db-backup]="KFP_DB_BACKUP_")
 declare -A ACTIONS=(
   [admin]='"Admin","Read","List","Tagging","Write"'
   [backup]='"Read","List"'
   [restore]='"Admin:restore-*"'
   [kfp]="\"Read:${KFP_BUCKET}\",\"Write:${KFP_BUCKET}\",\"List:${KFP_BUCKET}\""
+  [kfp-db-backup]="\"Read:${KFP_DB_BACKUP_BUCKET}\",\"Write:${KFP_DB_BACKUP_BUCKET}\",\"List:${KFP_DB_BACKUP_BUCKET}\""
 )
 declare -A AK=() SK=()
 
@@ -35,6 +38,9 @@ Commands:
                         identities, keep the other keys, restart SeaweedFS and sync the backup Secrets
   kfp-identity --yes    Generate the "kfp" identity (mlpipeline bucket only), keep the other keys,
                         restart SeaweedFS and sync kubeflow/mlpipeline-minio-artifact
+  kfp-db-backup-identity --yes
+                        Generate the "kfp-db-backup" identity (kfp-db-backup bucket only), keep the other
+                        keys, restart SeaweedFS and sync kubeflow/kfp-db-backup-s3
   sync                  Copy the client keys into the object-storage-backup and kubeflow namespaces
   sync-backup           Same as sync (kept for compatibility)
   status                Show Secret metadata and key fingerprints without revealing any value
@@ -180,6 +186,7 @@ sync_all() {
   sync_client backup "$BACKUP_SECRET" "$BACKUP_NAMESPACE" object-storage-backup AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY
   sync_client restore "$RESTORE_SECRET" "$BACKUP_NAMESPACE" object-storage-backup AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY
   sync_client kfp "$KFP_SECRET" "$KFP_NAMESPACE" kubeflow-pipelines accesskey secretkey
+  sync_client kfp-db-backup "$KFP_DB_BACKUP_SECRET" "$KFP_NAMESPACE" kubeflow-pipelines AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY
 }
 
 replace_and_restart() {
@@ -243,10 +250,10 @@ keys:        {{range $k, $v := .data}} {{$k}}{{end}}
   echo "identities:   $(read_key 's3\.json' | grep -o '"name":"[^"]*"' | cut -d'"' -f4 | paste -sd' ')"
   for id in "${IDENTITIES[@]}"; do
     if [[ -n "$(read_key "$(data_key "$id" ACCESS_KEY_ID)")" ]]; then
-      printf '%-8s access key sha256: %s\n' "$id" "$(fingerprint "$NAMESPACE" "$SECRET" "$(data_key "$id" ACCESS_KEY_ID)")"
+      printf '%-14s access key sha256: %s\n' "$id" "$(fingerprint "$NAMESPACE" "$SECRET" "$(data_key "$id" ACCESS_KEY_ID)")"
     fi
   done
-  for target in "$BACKUP_NAMESPACE/$BACKUP_SECRET/AWS_ACCESS_KEY_ID" "$BACKUP_NAMESPACE/$RESTORE_SECRET/AWS_ACCESS_KEY_ID" "$KFP_NAMESPACE/$KFP_SECRET/accesskey"; do
+  for target in "$BACKUP_NAMESPACE/$BACKUP_SECRET/AWS_ACCESS_KEY_ID" "$BACKUP_NAMESPACE/$RESTORE_SECRET/AWS_ACCESS_KEY_ID" "$KFP_NAMESPACE/$KFP_SECRET/accesskey" "$KFP_NAMESPACE/$KFP_DB_BACKUP_SECRET/AWS_ACCESS_KEY_ID"; do
     IFS=/ read -r ns name key <<<"$target"
     if secret_exists "$ns" "$name"; then
       echo "$ns/$name access key sha256: $(fingerprint "$ns" "$name" "$key")"
@@ -261,6 +268,7 @@ case "${1:-}" in
   rotate) shift; cmd_rotate "$@" ;;
   backup-identities) shift; cmd_regenerate "${1:-}" backup restore ;;
   kfp-identity) shift; cmd_regenerate "${1:-}" kfp ;;
+  kfp-db-backup-identity) shift; cmd_regenerate "${1:-}" kfp-db-backup ;;
   sync|sync-backup) cmd_sync ;;
   status) cmd_status ;;
   -h|--help|help) usage ;;

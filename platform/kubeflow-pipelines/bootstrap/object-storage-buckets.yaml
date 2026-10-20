@@ -1,7 +1,7 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: kfp-mlpipeline-bucket
+  name: kfp-object-storage-buckets
   namespace: object-storage
   labels:
     app.kubernetes.io/part-of: kubeflow-pipelines
@@ -25,19 +25,21 @@ spec:
         seccompProfile:
           type: RuntimeDefault
       containers:
-        - name: create-bucket
+        - name: create-buckets
           image: docker.io/amazon/aws-cli:2.38.1@sha256:733d5be1015825e4038c6016f3fa9954868ddee1f611b73be795a9cc2e706bfd
           command:
             - /bin/sh
             - -ec
             - |
-              if aws s3api head-bucket --bucket mlpipeline 2>/dev/null; then
-                echo "bucket mlpipeline already exists"
-              else
-                aws s3api create-bucket --bucket mlpipeline >/dev/null
-                echo "created bucket mlpipeline"
-              fi
-              aws s3api head-bucket --bucket mlpipeline
+              for bucket in mlpipeline kfp-db-backup; do
+                if aws s3api head-bucket --bucket "$bucket" 2>/dev/null; then
+                  echo "bucket $bucket already exists"
+                else
+                  aws s3api create-bucket --bucket "$bucket" >/dev/null
+                  echo "created bucket $bucket"
+                fi
+                aws s3api head-bucket --bucket "$bucket"
+              done
               echo PASS
           env:
             - name: HOME

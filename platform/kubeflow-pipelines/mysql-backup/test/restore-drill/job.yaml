@@ -1,0 +1,178 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: kfp-mysql-restore-drill
+  namespace: kubeflow
+  labels:
+    app.kubernetes.io/part-of: kubeflow-pipelines-test
+spec:
+  backoffLimit: 0
+  activeDeadlineSeconds: 900
+  ttlSecondsAfterFinished: 3600
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/part-of: kubeflow-pipelines-test
+    spec:
+      serviceAccountName: kfp-mysql-backup
+      automountServiceAccountToken: false
+      enableServiceLinks: false
+      restartPolicy: Never
+      securityContext:
+        runAsNonRoot: true
+        fsGroup: 1009
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
+      initContainers:
+        - name: fetch
+          image: docker.io/rclone/rclone:1.75.2@sha256:2687085f718d3c628f7fdfb77c52a1d344332aed543110bb88088f2c70d43eb5
+          command:
+            - /bin/sh
+            - /scripts/fetch.sh
+          env:
+            - name: HOME
+              value: /tmp
+            - name: XDG_CONFIG_HOME
+              value: /tmp
+            - name: BACKUP_RUN_ID
+              value: ""
+            - name: RCLONE_CONFIG_SEAWEEDFS_TYPE
+              value: s3
+            - name: RCLONE_CONFIG_SEAWEEDFS_PROVIDER
+              value: SeaweedFS
+            - name: RCLONE_CONFIG_SEAWEEDFS_ENDPOINT
+              value: http://seaweedfs.object-storage.svc.cluster.local:8333
+            - name: RCLONE_CONFIG_SEAWEEDFS_REGION
+              value: us-east-1
+            - name: RCLONE_CONFIG_SEAWEEDFS_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: kfp-db-backup-s3
+                  key: AWS_ACCESS_KEY_ID
+            - name: RCLONE_CONFIG_SEAWEEDFS_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: kfp-db-backup-s3
+                  key: AWS_SECRET_ACCESS_KEY
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+          securityContext:
+            runAsUser: 1009
+            runAsGroup: 1009
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            - name: scripts
+              mountPath: /scripts
+              readOnly: true
+            - name: work
+              mountPath: /work
+            - name: tmp-fetch
+              mountPath: /tmp
+        - name: mysqld
+          image: docker.io/library/mysql:8.4.11@sha256:0f51e63e537a1f176423fa03ef559aabe6fa4372a53160a44bc7e75da7d15364
+          restartPolicy: Always
+          command:
+            - /bin/bash
+            - -ec
+            - |
+              mysqld --initialize-insecure --datadir=/var/lib/mysql/data --user=mysql
+              exec mysqld --datadir=/var/lib/mysql/data --user=mysql --skip-networking \
+                --socket=/var/run/mysqld/mysqld.sock --pid-file=/var/run/mysqld/mysqld.pid --log-error-verbosity=1
+          resources:
+            requests:
+              cpu: 100m
+              memory: 384Mi
+            limits:
+              cpu: "1"
+              memory: 1Gi
+          securityContext:
+            runAsUser: 999
+            runAsGroup: 999
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            - name: datadir
+              mountPath: /var/lib/mysql
+            - name: socket
+              mountPath: /var/run/mysqld
+            - name: tmp-mysqld
+              mountPath: /tmp
+      containers:
+        - name: verify
+          image: docker.io/library/mysql:8.4.11@sha256:0f51e63e537a1f176423fa03ef559aabe6fa4372a53160a44bc7e75da7d15364
+          command:
+            - /bin/bash
+            - /scripts/verify.sh
+          env:
+            - name: MYSQL_BACKUP_USER
+              valueFrom:
+                secretKeyRef:
+                  name: kfp-mysql-backup
+                  key: username
+            - name: MYSQL_BACKUP_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: kfp-mysql-backup
+                  key: password
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              cpu: "1"
+              memory: 512Mi
+          securityContext:
+            runAsUser: 999
+            runAsGroup: 999
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            - name: scripts
+              mountPath: /scripts
+              readOnly: true
+            - name: work
+              mountPath: /work
+              readOnly: true
+            - name: socket
+              mountPath: /var/run/mysqld
+            - name: tmp-verify
+              mountPath: /tmp
+      volumes:
+        - name: scripts
+          configMap:
+            name: kfp-mysql-restore-drill
+            defaultMode: 0555
+        - name: work
+          emptyDir:
+            sizeLimit: 1Gi
+        - name: datadir
+          emptyDir:
+            sizeLimit: 2Gi
+        - name: socket
+          emptyDir:
+            sizeLimit: 1Mi
+        - name: tmp-fetch
+          emptyDir:
+            sizeLimit: 64Mi
+        - name: tmp-mysqld
+          emptyDir:
+            sizeLimit: 256Mi
+        - name: tmp-verify
+          emptyDir:
+            sizeLimit: 64Mi

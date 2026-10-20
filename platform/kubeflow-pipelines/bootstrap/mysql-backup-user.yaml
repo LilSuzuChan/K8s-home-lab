@@ -1,0 +1,85 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: kfp-mysql-backup-user
+  namespace: kubeflow
+  labels:
+    app.kubernetes.io/part-of: kubeflow-pipelines
+    app.kubernetes.io/component: mysql-backup
+spec:
+  backoffLimit: 0
+  activeDeadlineSeconds: 120
+  ttlSecondsAfterFinished: 86400
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/part-of: kubeflow-pipelines
+        app.kubernetes.io/component: mysql-backup
+    spec:
+      serviceAccountName: kfp-mysql-backup
+      automountServiceAccountToken: false
+      enableServiceLinks: false
+      restartPolicy: Never
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 999
+        runAsGroup: 999
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: create-user
+          image: docker.io/library/mysql:8.4.11@sha256:0f51e63e537a1f176423fa03ef559aabe6fa4372a53160a44bc7e75da7d15364
+          command:
+            - /bin/bash
+            - -ec
+            - |
+              umask 077
+              [[ "$BACKUP_USER" =~ ^[a-z_]{1,32}$ ]] || { echo "unexpected user name"; exit 1; }
+              [[ "$BACKUP_PASSWORD" =~ ^[A-Za-z0-9+/=]{16,}$ ]] || { echo "unexpected password format"; exit 1; }
+              printf '[client]\nuser=root\npassword=%s\nhost=mysql.kubeflow.svc.cluster.local\n' "$ROOT_PASSWORD" > /tmp/root.cnf
+              mysql --defaults-extra-file=/tmp/root.cnf <<SQL
+              CREATE USER IF NOT EXISTS '${BACKUP_USER}'@'%' IDENTIFIED BY '${BACKUP_PASSWORD}';
+              ALTER USER '${BACKUP_USER}'@'%' IDENTIFIED BY '${BACKUP_PASSWORD}';
+              REVOKE ALL PRIVILEGES, GRANT OPTION FROM '${BACKUP_USER}'@'%';
+              GRANT SELECT, SHOW VIEW ON mlpipeline.* TO '${BACKUP_USER}'@'%';
+              GRANT SELECT, SHOW VIEW ON metadb.* TO '${BACKUP_USER}'@'%';
+              SQL
+              mysql --defaults-extra-file=/tmp/root.cnf -N -e "SHOW GRANTS FOR '${BACKUP_USER}'@'%'"
+              rm -f /tmp/root.cnf
+              echo PASS
+          env:
+            - name: ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: mysql-secret
+                  key: password
+            - name: BACKUP_USER
+              valueFrom:
+                secretKeyRef:
+                  name: kfp-mysql-backup
+                  key: username
+            - name: BACKUP_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: kfp-mysql-backup
+                  key: password
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir:
+            sizeLimit: 16Mi
