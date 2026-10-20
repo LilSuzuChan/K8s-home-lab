@@ -1,0 +1,142 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: restore-drill-versions
+  namespace: object-storage-backup
+  labels:
+    app.kubernetes.io/part-of: object-storage-backup-test
+spec:
+  backoffLimit: 0
+  activeDeadlineSeconds: 600
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/part-of: object-storage-backup-test
+    spec:
+      restartPolicy: Never
+      automountServiceAccountToken: false
+      enableServiceLinks: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1009
+        runAsGroup: 1009
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: rclone
+          image: docker.io/rclone/rclone:1.75.2@sha256:2687085f718d3c628f7fdfb77c52a1d344332aed543110bb88088f2c70d43eb5
+          command:
+            - /bin/sh
+            - /scripts/restore-drill.sh
+            - versions
+          env:
+            - name: HOME
+              value: /tmp
+            - name: XDG_CONFIG_HOME
+              value: /tmp
+            - name: XDG_CACHE_HOME
+              value: /tmp
+            - name: BACKUP_BUCKET
+              valueFrom:
+                secretKeyRef:
+                  name: aws-backup-reader
+                  key: BACKUP_BUCKET
+            - name: RCLONE_CONFIG_SEAWEEDFS_TYPE
+              value: s3
+            - name: RCLONE_CONFIG_SEAWEEDFS_PROVIDER
+              value: SeaweedFS
+            - name: RCLONE_CONFIG_SEAWEEDFS_ENDPOINT
+              value: http://seaweedfs.object-storage.svc.cluster.local:8333
+            - name: RCLONE_CONFIG_SEAWEEDFS_REGION
+              value: us-east-1
+            - name: RCLONE_CONFIG_SEAWEEDFS_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: seaweedfs-backup-source
+                  key: AWS_ACCESS_KEY_ID
+            - name: RCLONE_CONFIG_SEAWEEDFS_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: seaweedfs-backup-source
+                  key: AWS_SECRET_ACCESS_KEY
+            - name: RCLONE_CONFIG_RESTORE_TYPE
+              value: s3
+            - name: RCLONE_CONFIG_RESTORE_PROVIDER
+              value: SeaweedFS
+            - name: RCLONE_CONFIG_RESTORE_ENDPOINT
+              value: http://seaweedfs.object-storage.svc.cluster.local:8333
+            - name: RCLONE_CONFIG_RESTORE_REGION
+              value: us-east-1
+            - name: RCLONE_CONFIG_RESTORE_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: seaweedfs-restore
+                  key: AWS_ACCESS_KEY_ID
+            - name: RCLONE_CONFIG_RESTORE_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: seaweedfs-restore
+                  key: AWS_SECRET_ACCESS_KEY
+            - name: RCLONE_CONFIG_AWS_TYPE
+              value: s3
+            - name: RCLONE_CONFIG_AWS_PROVIDER
+              value: AWS
+            - name: RCLONE_CONFIG_AWS_REGION
+              value: ap-northeast-1
+            - name: RCLONE_CONFIG_AWS_NO_CHECK_BUCKET
+              value: "true"
+            - name: RCLONE_CONFIG_AWS_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: aws-backup-reader
+                  key: AWS_ACCESS_KEY_ID
+            - name: RCLONE_CONFIG_AWS_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: aws-backup-reader
+                  key: AWS_SECRET_ACCESS_KEY
+            - name: RCLONE_CONFIG_AWSWRITER_TYPE
+              value: s3
+            - name: RCLONE_CONFIG_AWSWRITER_PROVIDER
+              value: AWS
+            - name: RCLONE_CONFIG_AWSWRITER_REGION
+              value: ap-northeast-1
+            - name: RCLONE_CONFIG_AWSWRITER_NO_CHECK_BUCKET
+              value: "true"
+            - name: RCLONE_CONFIG_AWSWRITER_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: aws-backup-writer
+                  key: AWS_ACCESS_KEY_ID
+            - name: RCLONE_CONFIG_AWSWRITER_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: aws-backup-writer
+                  key: AWS_SECRET_ACCESS_KEY
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              cpu: "1"
+              memory: 512Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            - name: scripts
+              mountPath: /scripts
+              readOnly: true
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: scripts
+          configMap:
+            name: restore-drill
+            defaultMode: 0555
+        - name: tmp
+          emptyDir:
+            sizeLimit: 256Mi
