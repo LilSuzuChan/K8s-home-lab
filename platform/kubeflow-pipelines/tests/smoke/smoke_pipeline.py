@@ -108,6 +108,7 @@ def main():
     parser.add_argument("--host", default=os.environ.get("KFP_HOST"), help="KFP UI/API URL; a port-forward is started when omitted")
     parser.add_argument("--timeout", type=int, default=900)
     parser.add_argument("--keep-verify-job", action="store_true")
+    parser.add_argument("--service-account", default="", help="Kubernetes ServiceAccount for the run; KFP uses pipeline-runner when empty")
     args = parser.parse_args()
 
     port_forward = None
@@ -122,8 +123,9 @@ def main():
             enable_caching=False,
             experiment_name="homelab-smoke",
             run_name=f"smoke-{time.strftime('%Y%m%d-%H%M%S')}",
+            service_account=args.service_account,
         )
-        print(f"run_id={run.run_id}")
+        print(f"run_id={run.run_id} service_account={args.service_account or 'pipeline-runner'}")
         result = client.wait_for_run_completion(run.run_id, timeout=args.timeout)
         print(f"state={result.state}")
         if result.state != "SUCCEEDED":
@@ -131,6 +133,10 @@ def main():
         workflows = json.loads(kubectl("-n", "kubeflow", "get", "workflow", "-l", f"pipeline/runid={run.run_id}", "-o", "json"))["items"]
         if len(workflows) != 1:
             sys.exit(f"expected one workflow for run {run.run_id}, found {len(workflows)}")
+        service_account = workflows[0]["spec"].get("serviceAccountName", "")
+        print(f"workflow={workflows[0]['metadata']['name']} serviceAccountName={service_account}")
+        if args.service_account and service_account != args.service_account:
+            sys.exit(f"workflow runs as {service_account}, expected {args.service_account}")
         if not verify_in_seaweedfs(run.run_id, workflows[0]["metadata"]["name"], args.keep_verify_job):
             sys.exit("artifact verification in SeaweedFS failed")
         print("PASS")
