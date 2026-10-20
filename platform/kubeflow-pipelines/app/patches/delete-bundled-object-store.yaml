@@ -1,0 +1,34 @@
+$patch: delete
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: seaweedfs
+  namespace: kubeflow
+---
+$patch: delete
+apiVersion: v1
+kind: Service
+metadata:
+  name: seaweedfs
+  namespace: kubeflow
+---
+$patch: delete
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: seaweedfs-pvc
+  namespace: kubeflow
+---
+$patch: delete
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: seaweedfs
+  namespace: kubeflow
+---
+$patch: delete
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: seaweedfs
+  namespace: kubeflow

@@ -1,0 +1,20 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ml-pipeline-ui
+  namespace: kubeflow
+spec:
+  template:
+    spec:
+      containers:
+        - name: ml-pipeline-ui
+          env:
+            - name: MINIO_HOST
+              value: seaweedfs
+            - name: MINIO_NAMESPACE
+              value: object-storage
+              valueFrom: null
+            - name: MINIO_PORT
+              value: "8333"
+            - name: MINIO_SSL
+              value: "false"

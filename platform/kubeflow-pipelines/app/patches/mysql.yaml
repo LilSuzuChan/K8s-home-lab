@@ -1,0 +1,27 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mysql
+  namespace: kubeflow
+spec:
+  template:
+    spec:
+      containers:
+        - name: mysql
+          env:
+            - name: MYSQL_ALLOW_EMPTY_PASSWORD
+              $patch: delete
+            - name: MYSQL_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: mysql-secret
+                  key: password
+                  optional: false
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mysql-pv-claim
+  namespace: kubeflow
+  annotations:
+    argocd.argoproj.io/sync-options: Delete=false

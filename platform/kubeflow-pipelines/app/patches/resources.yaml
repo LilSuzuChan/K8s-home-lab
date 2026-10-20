@@ -1,0 +1,186 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: metadata-envoy-deployment
+  namespace: kubeflow
+spec:
+  template:
+    spec:
+      containers:
+        - name: container
+          resources:
+            requests:
+              cpu: 20m
+              memory: 64Mi
+            limits:
+              memory: 256Mi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: metadata-grpc-deployment
+  namespace: kubeflow
+spec:
+  template:
+    spec:
+      containers:
+        - name: container
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              memory: 512Mi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: metadata-writer
+  namespace: kubeflow
+spec:
+  template:
+    spec:
+      containers:
+        - name: main
+          resources:
+            requests:
+              cpu: 20m
+              memory: 128Mi
+            limits:
+              memory: 512Mi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ml-pipeline
+  namespace: kubeflow
+spec:
+  template:
+    spec:
+      containers:
+        - name: ml-pipeline-api-server
+          resources:
+            requests:
+              cpu: 100m
+              memory: 384Mi
+            limits:
+              memory: 1Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ml-pipeline-persistenceagent
+  namespace: kubeflow
+spec:
+  template:
+    spec:
+      containers:
+        - name: ml-pipeline-persistenceagent
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              memory: 512Mi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ml-pipeline-scheduledworkflow
+  namespace: kubeflow
+spec:
+  template:
+    spec:
+      containers:
+        - name: ml-pipeline-scheduledworkflow
+          resources:
+            requests:
+              cpu: 20m
+              memory: 64Mi
+            limits:
+              memory: 256Mi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ml-pipeline-ui
+  namespace: kubeflow
+spec:
+  template:
+    spec:
+      containers:
+        - name: ml-pipeline-ui
+          resources:
+            requests:
+              cpu: 20m
+              memory: 128Mi
+            limits:
+              memory: 512Mi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ml-pipeline-viewer-crd
+  namespace: kubeflow
+spec:
+  template:
+    spec:
+      containers:
+        - name: ml-pipeline-viewer-crd
+          resources:
+            requests:
+              cpu: 10m
+              memory: 64Mi
+            limits:
+              memory: 256Mi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ml-pipeline-visualizationserver
+  namespace: kubeflow
+spec:
+  template:
+    spec:
+      containers:
+        - name: ml-pipeline-visualizationserver
+          resources:
+            requests:
+              cpu: 20m
+              memory: 256Mi
+            limits:
+              memory: 1Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mysql
+  namespace: kubeflow
+spec:
+  template:
+    spec:
+      containers:
+        - name: mysql
+          resources:
+            requests:
+              cpu: 200m
+              memory: 1Gi
+            limits:
+              memory: 2Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: workflow-controller
+  namespace: kubeflow
+spec:
+  template:
+    spec:
+      containers:
+        - name: workflow-controller
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              memory: 1Gi

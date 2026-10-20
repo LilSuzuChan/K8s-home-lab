@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: pipeline-install-config
+  namespace: kubeflow
+data:
+  BLOCK_V1_PIPELINES: "true"
+  defaultPipelineRoot: minio://mlpipeline/v2/artifacts
+  defaultSecurityContextRunAsUser: "1000"
+  defaultSecurityContextRunAsGroup: "1000"
+  defaultSecurityContextRunAsNonRoot: "true"

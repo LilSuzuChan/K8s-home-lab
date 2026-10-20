@@ -1,0 +1,72 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: kubeflow
+
+resources:
+  - upstream/kfp-2.17.2-platform-agnostic.yaml
+  - networkpolicy.yaml
+  - limitrange.yaml
+
+components:
+  - ../components/without-cache-webhook
+
+images:
+  - name: ghcr.io/kubeflow/kfp-api-server
+    newTag: 2.17.2
+    digest: sha256:8e9f9e66d127fe27f61236bc35a66e8558c58e5f828ad50b15257220140bf023
+  - name: ghcr.io/kubeflow/kfp-persistence-agent
+    newTag: 2.17.2
+    digest: sha256:c05bc60bd96e54ceacb2d98c0b02949f6063a5937cb01d29403f43ff01de7123
+  - name: ghcr.io/kubeflow/kfp-scheduled-workflow-controller
+    newTag: 2.17.2
+    digest: sha256:d46f96664c89acd6b8eb5c3b57f941f762254c18cd9544d7cfaca181b5624ecd
+  - name: ghcr.io/kubeflow/kfp-frontend
+    newTag: 2.17.2
+    digest: sha256:0da8b3f14a7bb2677834e8b68a68a2b2056bcc0c7a5c2a83c9722ea7fe2282a3
+  - name: ghcr.io/kubeflow/kfp-viewer-crd-controller
+    newTag: 2.17.2
+    digest: sha256:9c97159869d7de18fb02ceb324ffb622784367205fbc95c9150317f237c31202
+  - name: ghcr.io/kubeflow/kfp-visualization-server
+    newTag: 2.17.2
+    digest: sha256:37049dc7ebc3c74efd09ecfab5f6466a341830106e6927ec8a832b41bf507347
+  - name: ghcr.io/kubeflow/kfp-metadata-envoy
+    newTag: 2.17.2
+    digest: sha256:5a5f21dff51a33ea6f5e8683ed9ff4cec1090d6c6742fdc3eb0101771c39c951
+  - name: ghcr.io/kubeflow/kfp-metadata-writer
+    newTag: 2.17.2
+    digest: sha256:6e501e2e0b0be514ce5d8ce1c4becb12b252ef7eaab4ebb4ec5111a9d4d40ee6
+  - name: gcr.io/tfx-oss-public/ml_metadata_store_server
+    newTag: 1.14.0
+    digest: sha256:51404ef4419c1426da80f3e14a83dcb55f65bb5a971371d36d14cec1e50af830
+  - name: mysql
+    newName: docker.io/library/mysql
+    newTag: 8.4.11
+    digest: sha256:0f51e63e537a1f176423fa03ef559aabe6fa4372a53160a44bc7e75da7d15364
+  - name: docker.io/alpine
+    newTag: 3.23.6
+    digest: sha256:85fe1e81d6758c208f3e1eed4338a1997e19d4be002d4dd32d3100c9a8c010a0
+  - name: quay.io/argoproj/workflow-controller
+    newTag: v4.0.5
+    digest: sha256:4001b58f3c34bb65015c79919157e45f51f4d7450806c64987abdb7dc86f8453
+
+patches:
+  - path: patches/delete-bundled-object-store.yaml
+  - path: patches/delete-default-secrets.yaml
+  - path: patches/pipeline-install-config.yaml
+  - path: patches/kfp-launcher.yaml
+  - path: patches/workflow-controller-configmap.yaml
+  - path: patches/ml-pipeline.yaml
+  - path: patches/ml-pipeline-ui.yaml
+  - path: patches/mysql.yaml
+  - path: patches/resources.yaml
+  - target:
+      kind: Deployment
+      name: workflow-controller
+    patch: |-
+      - op: test
+        path: /spec/template/spec/containers/0/args/3
+        value: quay.io/argoproj/argoexec:v4.0.5
+      - op: replace
+        path: /spec/template/spec/containers/0/args/3
+        value: quay.io/argoproj/argoexec:v4.0.5@sha256:0cb732e24c7d13385066c920e2943fdddfa1d15e6bf5ad99f02e48c50625d022
