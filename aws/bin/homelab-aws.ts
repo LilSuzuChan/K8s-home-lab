@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { App, Tags, Validations } from 'aws-cdk-lib';
 import { AwsSolutionsChecks } from 'cdk-nag';
+import { BackupMonitorStack } from '../lib/backup-monitor-stack';
 import { BackupStack } from '../lib/backup-stack';
 
 const app = new App();
@@ -17,6 +18,14 @@ new BackupStack(app, 'HomelabBackupStack', {
   description: 'Off-site backup bucket and least-privilege IAM users for the K8s-home-lab SeaweedFS object storage',
   budgetEmail,
   monthlyBudgetUsd,
+});
+
+const alertEmail = app.node.tryGetContext('alertEmail') ?? process.env.HOMELAB_ALERT_EMAIL ?? budgetEmail;
+
+new BackupMonitorStack(app, 'HomelabBackupMonitorStack', {
+  env: { account: process.env.CDK_DEFAULT_ACCOUNT, region: 'ap-northeast-1' },
+  description: 'Hourly freshness checks and email alerts for the K8s-home-lab MySQL dump and AWS backup copy',
+  alertEmail,
 });
 
 Tags.of(app).add('Project', 'k8s-home-lab');
