@@ -52,6 +52,14 @@ spec:
               protocol: TCP
     - toEndpoints:
         - matchLabels:
+            k8s:io.kubernetes.pod.namespace: drawing-classifier
+            app: feedback-api
+      toPorts:
+        - ports:
+            - port: "8080"
+              protocol: TCP
+    - toEndpoints:
+        - matchLabels:
             k8s:io.kubernetes.pod.namespace: object-storage
             app.kubernetes.io/name: seaweedfs
       toPorts:
